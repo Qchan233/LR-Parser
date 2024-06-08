@@ -118,6 +118,22 @@ class Syntax:
                             changed = True
         return s
     
+    def goto(self, s, x):
+        assert isinstance(s, set), 's should be a set'
+        for item in s:
+            assert isinstance(item, LR_Entry), 'item should be a LR_Entry'
+        assert isinstance(x, Symbol), 'x should be a Symbol'
+        t = set()
+        for item in s:
+            right = item.right 
+            if right and right[0] == x:
+                beta = list(item.left)
+                beta_x = beta + [right[0]]
+                new_item = LR_Entry(item.symbol, tuple(beta_x), item.right[1:], item.lookahead)
+                t.add(new_item)
+
+        return self.closure(t)
+
     @classmethod
     def entry_str(cls, entry: LR_Entry):
         sym = entry.symbol
@@ -130,6 +146,11 @@ class Syntax:
         lookahead = entry.lookahead
         return f'[{sym} -> {left_str}·{right_str}, {lookahead}]'
     
+    @classmethod
+    def show_set(cls, s):
+        for item in s:
+            print(cls.entry_str(item))
+    
 
 if __name__ == '__main__':
     # import everything from expr_grammar.py
@@ -138,5 +159,12 @@ if __name__ == '__main__':
     # syntax.show_first_set()
     initial_entry = LR_Entry(Goal, (), (List,), Eof)
     cc0 = syntax.closure({LR_Entry(Goal, (), (List,), Eof)})
-    for item in cc0:
-        print(Syntax.entry_str(item))
+    print('CC0:------------------')
+    Syntax.show_set(cc0)
+    cc1 = syntax.goto(cc0, List)
+    print('CC1:------------------')
+    Syntax.show_set(cc1)
+    cc2 = syntax.goto(cc0, Pair)
+    print('CC2:------------------')
+    Syntax.show_set(cc2)
+ 
