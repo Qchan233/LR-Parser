@@ -116,10 +116,9 @@ class Syntax:
                         if new_item not in s:
                             s.add(new_item)
                             changed = True
-        return s
+        return frozenset(s)
     
     def goto(self, s, x):
-        assert isinstance(s, set), 's should be a set'
         for item in s:
             assert isinstance(item, LR_Entry), 'item should be a LR_Entry'
         assert isinstance(x, Symbol), 'x should be a Symbol'
@@ -133,6 +132,41 @@ class Syntax:
                 t.add(new_item)
 
         return self.closure(t)
+    
+    def build_collection(self):
+        initial_rule = self.rules[0] 
+        intial_entry = LR_Entry(initial_rule[0], (), tuple(initial_rule[1]), Eof)
+
+        cc0 = self.closure({intial_entry})
+        CC = {cc0}
+        state_lst = [cc0]
+        state2idx = {cc0: 0}
+        
+        unmarked = {cc0} 
+        changed = True
+        transitions = {}
+        while changed:
+            changed = False
+            for cc in unmarked.copy():
+                unmarked.remove(cc)
+                for entry in cc:
+                    right = entry.right
+                    if not right:
+                        continue
+                    x = right[0]
+                    tmp = self.goto(cc, x)
+                    if tmp not in CC:
+                        changed = True
+                        idx = len(CC)
+                        CC.add(tmp)
+                        state2idx[tmp] = idx 
+                        state_lst.append(tmp)
+                        unmarked.add(tmp)
+                    
+                    transitions[(state2idx[cc], x)] = idx
+                    
+        return state_lst, state2idx, transitions
+
 
     @classmethod
     def entry_str(cls, entry: LR_Entry):
@@ -157,14 +191,22 @@ if __name__ == '__main__':
     from paren_syntax import *
     syntax = Syntax(syms, rules)
     # syntax.show_first_set()
-    initial_entry = LR_Entry(Goal, (), (List,), Eof)
-    cc0 = syntax.closure({LR_Entry(Goal, (), (List,), Eof)})
-    print('CC0:------------------')
-    Syntax.show_set(cc0)
-    cc1 = syntax.goto(cc0, List)
-    print('CC1:------------------')
-    Syntax.show_set(cc1)
-    cc2 = syntax.goto(cc0, Pair)
-    print('CC2:------------------')
-    Syntax.show_set(cc2)
- 
+    # initial_entry = LR_Entry(Goal, (), (List,), Eof)
+    # cc0 = syntax.closure({LR_Entry(Goal, (), (List,), Eof)})
+    # print('CC0:------------------')
+    # Syntax.show_set(cc0)
+    # cc1 = syntax.goto(cc0, List)
+    # print('CC1:------------------')
+    # Syntax.show_set(cc1)
+    # cc2 = syntax.goto(cc0, Pair)
+    # print('CC2:------------------')
+    # Syntax.show_set(cc2)
+
+    state_lst, _, transitions = syntax.build_collection()
+    for state in state_lst:
+        print('------------------')
+        print(len(state))
+        Syntax.show_set(state)
+    print(len(transitions))
+    print(transitions)
+# 2 2 2 2 2 2 2 2 
