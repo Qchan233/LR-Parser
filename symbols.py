@@ -209,4 +209,3 @@ if __name__ == '__main__':
         Syntax.show_set(state)
     print(len(transitions))
     print(transitions)
-# 2 2 2 2 2 2 2 2 
