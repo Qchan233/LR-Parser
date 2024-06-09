@@ -19,6 +19,11 @@ class Symbol:
 Epsilon = Symbol('ε', Symbol_Type.TERMINAL)
 Eof = Symbol('EOF', Symbol_Type.EOF)
 
+class Action(Enum):
+    SHIFT = 0
+    REDUCE = 1
+    ACCEPT = 2
+
 class Syntax:
     def __init__(self, symbols, rules)-> None:
         self.symbols = symbols
@@ -167,9 +172,67 @@ class Syntax:
                     
         return state_lst, state2idx, transitions
 
+    def build_table(self):
+        states, state2idx, transitions = self.build_collection()
+        self.lr_states = states
+        action_table = {}
+        goto_table = {}
+
+        for state in states:
+            state_idx = state2idx[state]
+            for entry in state:
+                if entry.right:
+                    x = entry.right[0]
+                    if x.symbol_type == Symbol_Type.TERMINAL:
+                        j = transitions[(state_idx, x)]
+                        action_table[(state_idx, x)] = (Action.SHIFT, j)
+                elif entry.symbol == Goal and entry.lookahead == Eof:
+                    action_table[(state_idx, Eof)] = (Action.ACCEPT, None)
+                else:
+                    a = entry.lookahead
+                    action_table[(state_idx, a)] = (Action.REDUCE, entry)
+
+            
+            for symbol in self.nonterminals:
+                if (state_idx, symbol) in transitions:
+                    goto_table[(state_idx, symbol)] = transitions[(state_idx, symbol)]
+
+        return action_table, goto_table
+    
+
+    def visualiz_table(self, action_table, goto_table):
+        n_state = len(self.lr_states)
+        action_table_lst = [[None] * len(self.symbols) for _ in range(n_state + 1)]
+        print('State:', end='\t')
+        terminals = [Eof] + self.terminals
+        for symbol in terminals:
+            if symbol == Epsilon:
+                continue
+            print(symbol, end='\t')
+        print()
+        for i in range(n_state):
+            print(i, end='\t')
+            for j, symbol in enumerate(terminals):
+                if symbol == Epsilon:
+                    continue
+                if (i, symbol) in action_table:
+                    action, val = action_table[(i, symbol)]
+                    if action == Action.SHIFT:
+                        action_table_lst[i][j] = f's{val}'
+                    elif action == Action.REDUCE:
+                        # action_table_lst[i][j] = f'r{Syntax.entry_str(val, skip_lookahead=True)}'
+                        action_table_lst[i][j] = f'r '
+                    elif action == Action.ACCEPT:
+                        action_table_lst[i][j] = 'acc'
+                else:
+                    action_table_lst[i][j] = ' '
+                print(action_table_lst[i][j], end='\t')
+            print()
+
+
 
     @classmethod
-    def entry_str(cls, entry: LR_Entry):
+    def entry_str(cls, entry: LR_Entry, skip_lookahead=False):
         sym = entry.symbol
         left = entry.left
         right = entry.right
@@ -178,14 +241,16 @@ class Syntax:
         right_str = ' '.join([str(symbol) for symbol in right])
 
         lookahead = entry.lookahead
-        return f'[{sym} -> {left_str}·{right_str}, {lookahead}]'
+        if skip_lookahead:
+            return f'[{sym} -> {left_str}]'
+        else:
+            return f'[{sym} -> {left_str}·{right_str}, {lookahead}]'
     
     @classmethod
     def show_set(cls, s):
         for item in s:
             print(cls.entry_str(item))
     
-
 if __name__ == '__main__':
     # import everything from expr_grammar.py
     from paren_syntax import *
@@ -202,10 +267,14 @@ if __name__ == '__main__':
     # print('CC2:------------------')
     # Syntax.show_set(cc2)
 
-    state_lst, _, transitions = syntax.build_collection()
-    for state in state_lst:
-        print('------------------')
-        print(len(state))
-        Syntax.show_set(state)
-    print(len(transitions))
-    print(transitions)
+    # state_lst, _, transitions = syntax.build_collection()
+    # for state in state_lst:
+    #     print('------------------')
+    #     print(len(state))
+    #     Syntax.show_set(state)
+    # print(len(transitions))
+    # print(transitions)
+
+    action_table, goto_table =  syntax.build_table()
+    # syntax.visualiz_table(action_table, goto_table)
+    syntax.visualiz_table(action_table, goto_table)
